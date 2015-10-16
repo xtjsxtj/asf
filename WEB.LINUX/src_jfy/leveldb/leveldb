@@ -1,0 +1,61 @@
+#!/usr/bin/env php
+<?php
+error_reporting(E_ALL);
+
+/**
+ * usage: leveldb [-h <host>] [-p <port>] <--database datapath> [-m <num>] [-t <num>] [-v <arg>] [-d [-l <logfile>]]
+ *
+ * -h [--host]     <host> (=localhost)     leveldb server host. default=0.0.0.0.
+ * -p [--port]     <port> (=9510)          leveldb server port. default=9510
+ * --database      <arg>                   leveldb database path.
+ * -m [--memsize]  <num>  (=256M)          leveldb write buffer size(MB). default=256M.
+ * -t [--threads]  <num>  (=CPU CORES)     number of I/O thread. default=CPU cores num.
+ * -v [--verbose]  <arg>  (=ERROR)         verbose level (ERROR, WARNING, NOTICE, INFO, DEBUG). default=NOTICE.
+ * -d [--daemon]          (=FALSE)         daemon. switch to background run.
+ * -l [--logfile]  <arg>  (=./leveldb.log) logfile with full path and filename. with this option must is with -d.
+
+ * @author jiaofuyou@qq.com
+ */
+
+$config  = array(
+    //'host' => 'localhost',
+    //'port' => 9510,
+    'database' => '/usr1/app/data/leveldb',
+    //'memsize' => 256,
+    //'threads' => 4,
+    'verbose' => 'DEBUG',
+    //'daemon' => true,
+    'logfile' => '/usr1/app/logs/leveldb.log',
+);
+
+$shortopts = 'h:p:m:5:v:d::l:';
+$longopts  = array(
+    'host:',
+    'port:',
+    'database:',
+    'memsize:',
+    'threads:',
+    'verbose:',
+    'daemon::',
+    'logfile:',
+);
+
+$options = getopt($shortopts, $longopts);
+
+if ( isset($options['database']) ) $config['database'] = $options['database'];
+if ( isset($options['h']) ) $config['host']    = $options['h'];
+if ( isset($options['p']) ) $config['port']    = $options['p'];
+if ( isset($options['m']) ) $config['memsize'] = $options['m'];
+if ( isset($options['t']) ) $config['threads'] = $options['t'];
+if ( isset($options['v']) ) $config['verbose'] = $options['v'];
+if ( isset($options['d']) ) $config['daemon:'] = true;
+if ( isset($options['l']) ) $config['logfile'] = $options['l'];
+
+if ( !isset($config['database']) ) {
+    echo 'option --database must is set!'."\n";
+    echo 'usage: leveldb [-h <host>] [-p <port>] <--database datapath> [-m <num>] [-t <num>] [-v <arg>] [-d [-l <logfile>]]'."\n";
+    exit;
+}
+
+require_once dirname(__FILE__).'/./leveldb_server.php';
+leveldb_server($config);
