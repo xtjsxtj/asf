@@ -142,7 +142,7 @@ class swoole
         if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
             return $this->response($response, 404, "'$uri' is not found!");  
         }  
-        $class = $match[1];
+        $class = $match[1].'_controller';
         $fun = $match[2];
         //判断类是否存在
         if (! class_exists($class)  || !method_exists(($class),($fun))) {
@@ -160,8 +160,8 @@ class swoole
         Log::prn_log(NOTICE, "request:");
         echo "api: $class.$fun\ncontent: \n$content\n";
 
-        $obj = new $class();
-        return $this->response($response, 200, $obj->$fun($request, $content), array('Content-Type' => 'application/json'));
+        $obj = new $class($this->serv, $request);
+        return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
     }
 
     private function trans_listener($listen)

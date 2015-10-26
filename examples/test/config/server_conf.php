@@ -2,7 +2,7 @@
 
 class Swoole_conf {
     public static $config=array(
-        'log_level' => NOTICE, 
+        'log_level' => DEBUG, 
         'is_sington' => true,
         'listen' => ['0.0.0.0:9501', '172.16.18.116:9502'],
         'worker_num' => 1,
