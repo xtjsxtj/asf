@@ -86,7 +86,10 @@ function app_init()
     }
         
     echo exec('/bin/cp -r ' . $app_examples_test_path .' '. $app_new_path);
-    echo exec('/bin/mv ' . $app_examples_test_path.'/test.php ' . $app_new_path.'/'.$serv.'.php');
+    echo exec('/bin/mv ' . $app_new_path.'/test.php ' . $app_new_path.'/'.$serv.'.php');
+    if (file_exists($app_new_path.'/test.log')) {
+        unlink($app_new_path.'/test.log');
+    }
         
     echo "app [$serv] init ok\n";
 }
