@@ -2,7 +2,7 @@
 
 class Worker_conf{
     public static $config=array(
-        'log_level' => NOTICE,
+        'log_level' => DEBUG,
         'server' => array(
             'mysql_host' => '127.0.0.1',
             'mysql_port' => 3306,
