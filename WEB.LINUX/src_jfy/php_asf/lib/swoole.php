@@ -140,19 +140,7 @@ class swoole
         foreach($this->listen as $v) {
             if ($i==0) {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
-                if ( !isset($this->config['swoole']['server_type']) ) {
-                    $this->config['swoole']['server_type'] = 'http';
-                }
-                if ( $this->config['swoole']['server_type'] === 'http' ) {
-                    log::prn_log(NOTICE, "start http server");
-                    $this->serv = new swoole_http_server($v['host'],$v['port']);
-                } else
-                if ( $this->config['swoole']['server_type'] === 'tcp' ) {
-                    log::prn_log(NOTICE, "start tcp server");
-                    $this->serv = new swoole_server($v['host'],$v['port']);
-                } else {
-                    log::prn_log(ERROR, "server_type [{$this->config['swoole']['server_type']}] error");
-                }
+                $this->new_swoole_server($v['host'],$v['port']);
             } else {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
                 $this->serv->addlistener($v['host'],$v['port'],SWOOLE_SOCK_TCP);

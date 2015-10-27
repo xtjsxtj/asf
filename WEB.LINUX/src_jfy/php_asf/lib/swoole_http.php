@@ -8,6 +8,11 @@
 
 class swoole_http extends swoole
 {
+    public function new_swoole_server($host, $port){
+        log::prn_log(NOTICE, "new swoole_http_server");
+        $this->serv = new swoole_http_server($host, $port);
+    }
+    
     public function _init()
     {        
         $this->serv->on('Request', array($this, 'my_onRequest'));
