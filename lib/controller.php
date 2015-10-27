@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * @author jiaofuyou@qq.com
+ * @date   2015-10-25
+ */
+
 class controller { 
     protected $server;
     protected $request;
