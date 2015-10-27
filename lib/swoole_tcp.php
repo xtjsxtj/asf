@@ -8,6 +8,11 @@
 
 class swoole_tcp extends swoole
 {
+    public function new_swoole_server($host, $port){
+        log::prn_log(NOTICE, "new swoole_tcp_server");
+        $this->serv = new swoole_server($host, $port);
+    }
+    
     public function _init()
     {
         $this->serv->on('Receive', array($this, 'my_onReceive'));
