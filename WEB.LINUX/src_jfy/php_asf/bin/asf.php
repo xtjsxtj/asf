@@ -4,6 +4,10 @@
  * App Server Framework 启动脚本
  * @author jiaofuyou@qq.com
  * @date   2015-11-25
+ * 
+ * php asf.php servername start|stop|reload|restart|status|init
+ * php asf.php list
+ * 
  */
 
 error_reporting(E_ALL);
@@ -125,6 +129,12 @@ function app_init($param)
     }
         
     echo exec('/bin/cp -r ' . $param['server_examples_test_path'] .' '. $param['server_path']);
+    
+    $config_file = "{$param['server_path']}//config//server_conf.php";
+    $content = file_get_contents($config_file);
+    $content = str_replace("'server_name' => 'test'","'server_name' => '{$param['server_name']}'",$content);
+    file_put_contents($config_file,$content);
+   
         
     echo "app [{$param['server_name']}] init ok\n";
 }
@@ -197,6 +207,7 @@ function stop_and_wait($param, $wait_time = 5)
             posix_kill($pid, SIGTERM);
             unlink($pid_file);
             usleep(500000);
+            echo aaa;
             break;
         }
     }
