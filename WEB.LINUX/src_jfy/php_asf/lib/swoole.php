@@ -5,17 +5,19 @@
  * @author jiaofuyou@qq.com
  * @date   2014-11-25
  */
+
 class swoole
 {
-    private $info_dir="/var/local";
-    private $pid_file="";
-    public $listen;
+    public static $info_dir='/var/local/';
+    private $pid_file;
+    private $listen;    
+    private $config;
+    private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
+    private $title;
     public $serv;
-    public $config;
     public $on_func;
-    public $funclist;
-    public $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
-
+    
+    
     private function my_set_process_name($title)
     {
         if (substr(PHP_VERSION,0,3) >= '5.5') {
@@ -31,19 +33,14 @@ class swoole
 
         //替换pid为当前进程的pid，因为daemonize模式父进程会被替换
         $this->createPidfile();
-        $path_info=pathinfo($argv[0]);
-        $title=$path_info['filename'];
-        $this->my_set_process_name("{$title}: master");
+        $this->my_set_process_name("{$this->title}: master");
         Log::prn_log(DEBUG,"MasterPid={$serv->master_pid}|Manager_pid={$serv->manager_pid}");
         Log::prn_log(DEBUG,"Server: start.Swoole version is [".SWOOLE_VERSION."]");
     }
 
     function my_onManagerStart($serv)
     {
-        global $argv;
-        $path_info=pathinfo($argv[0]);
-        $title=$path_info['filename'];
-        $this->my_set_process_name("{$title}: manager");
+        $this->my_set_process_name("{$this->title}: manager");
     }
 
     function my_onShutdown($serv)
@@ -75,20 +72,18 @@ class swoole
         global $argv;
         global $db;
 
-        call_user_func($this->on_func['reload'], $this);
+        require_once BASE_PATH.'/config/worker_conf.php';
+        $this->reload_set(Worker_conf::$config);
+        Log::prn_log(DEBUG, 'reload ok!');        
 
         if($worker_id >= $serv->setting['worker_num'])
-        {
-            $path_info=pathinfo($argv[0]);
-            $title=$path_info['filename'];
-            $this->my_set_process_name("{$title}: tasker");
+        {            
+            $this->my_set_process_name("{$this->title}: tasker");
             Log::prn_log(DEBUG,"TaskerStart: WorkerId={$serv->worker_id}|WorkerPid={$serv->worker_pid}");
         }
         else
         {
-            $path_info=pathinfo($argv[0]);
-            $title=$path_info['filename'];
-            $this->my_set_process_name("{$title}: worker");
+            $this->my_set_process_name("{$this->title}: worker");
             Log::prn_log(DEBUG,"WorkerStart: WorkerId={$serv->worker_id}|WorkerPid={$serv->worker_pid}");
         }
 
@@ -137,7 +132,7 @@ class swoole
         if ( $request->server['request_method'] <> 'POST' ) {
             return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
         }
-        
+
         $uri = $request->server['request_uri'];
         if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
             return $this->response($response, 404, "'$uri' is not found!");  
@@ -158,7 +153,7 @@ class swoole
         }
 
         Log::prn_log(NOTICE, "request:");
-        echo "api: $class.$fun\ncontent: \n$content\n";
+        echo "api: $match[1].$match[2]\ncontent: \n$content\n";
 
         $obj = new $class($this->serv, $request);
         return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
@@ -188,6 +183,9 @@ class swoole
     {
         $this->config['swoole'] = $config;
         $this->is_sington = isset($config['is_sington'])?$config['is_sington']:false;
+        $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
+        echo $this->pid_file;
+        $this->title = $config['server_name'];
 
         Log::$log_level = $config['log_level'];
         
@@ -250,9 +248,9 @@ class swoole
 
     //----创建pid
     private function createPidfile(){
-
-        if (!is_dir($this->info_dir)){
-            mkdir($this->info_dir);
+        $info_dir = dirname($this->pid_file);
+        if (!is_dir($info_dir)){
+            mkdir($info_dir);
         }
         $fp = fopen($this->pid_file, 'w') or die("cannot create pid file");
         fwrite($fp, posix_getpid());
@@ -262,19 +260,11 @@ class swoole
 
     public function start()
     {
-        global $argv;
-
-        $this->pid_file = $this->info_dir . "/" .__CLASS__ . "_" . substr(basename($argv[0]), 0, -4) . ".pid";
         // 只能单例运行
         if ($this->is_sington==true){
             $this->checkPidfile();
         }
         $this->createPidfile();
-
-        if ( !function_exists($this->on_func['reload']) ) {
-            Log::prn_log(ERROR, 'on_reload is must by register!');
-            exit;
-        }
 
         $this->serv->start();
     }
