@@ -9,14 +9,14 @@
 class swoole
 {
     public static $info_dir='/var/local/';
+    private $title;
     private $pid_file;
     private $listen;    
-    private $config;
     private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
-    private $title;
+    protected $config;        
     public $serv;
     public $on_func;
-    
+    public $M;    
     
     private function my_set_process_name($title)
     {
@@ -29,8 +29,6 @@ class swoole
 
     function my_onStart($serv)
     {
-        global $argv;
-
         //替换pid为当前进程的pid，因为daemonize模式父进程会被替换
         $this->createPidfile();
         $this->my_set_process_name("{$this->title}: master");
@@ -69,9 +67,6 @@ class swoole
 
     function my_onWorkerStart($serv, $worker_id)
     {
-        global $argv;
-        global $db;
-
         require_once BASE_PATH.'/config/worker_conf.php';
         $this->reload_set(Worker_conf::$config);
         Log::prn_log(DEBUG, 'reload ok!');        
@@ -87,14 +82,14 @@ class swoole
             Log::prn_log(DEBUG,"WorkerStart: WorkerId={$serv->worker_id}|WorkerPid={$serv->worker_pid}");
         }
 
-        $db=new mysqldb(array('host'    => $this->config['server']['mysql_host'],
+        $this->M = new mysqldb(array('host'    => $this->config['server']['mysql_host'],
                               'port'    => $this->config['server']['mysql_port'],
                               'user'    => $this->config['server']['mysql_user'],
                               'passwd'  => $this->config['server']['mysql_passwd'],
                               'name'    => $this->config['server']['mysql_db'],
                               'persistent' => false, //MySQL长连接
         ));
-        $db->connect();
+        $this->M->connect();
 
         if ( isset($this->on_func['workerstart']) ) call_user_func($this->on_func['workerstart'], $serv, $worker_id);
     }
@@ -107,56 +102,6 @@ class swoole
     function my_onWorkerError($serv, $worker_id, $worker_pid, $exit_code)
     {
         Log::prn_log(ERROR,"WorkerError: worker abnormal exit. WorkerId=$worker_id|WorkerPid=$worker_pid|ExitCode=$exit_code");
-    }
-
-    private function response($response, $status, $result, $header = array())
-    {
-        if ( $status <> 200 ) {
-            Log::prn_log(ERROR, "$status $result");
-            $response->status($status);
-            $result = json_encode(array('error'=>$result, 'status'=>$status));
-        }
-
-        Log::prn_log(NOTICE, "response:");
-        echo "$result\n";
-
-        foreach($header as $key => $val) $response->header($key, $val);
-        $response->end($result);    
-    }
-
-    function my_onRequest(swoole_http_request $request, swoole_http_response $response)
-    {
-        //var_dump($request);
-
-        // 请求的文件        
-        if ( $request->server['request_method'] <> 'POST' ) {
-            return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
-        }
-
-        $uri = $request->server['request_uri'];
-        if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
-            return $this->response($response, 404, "'$uri' is not found!");  
-        }  
-        $class = $match[1].'_controller';
-        $fun = $match[2];
-        //判断类是否存在
-        if (! class_exists($class)  || !method_exists(($class),($fun))) {
-            return $this->response($response, 404, " class or fun not found class == $class fun == $fun");
-        };
-
-        $content = $request->rawContent();
-        if ( $content === false ) $content = '';
-        if ( $content === '' ) 
-        {
-            Log::prn_log(ERROR, $content);
-            return $this->response($response, 415, 'post content is empty!');        
-        }
-
-        Log::prn_log(NOTICE, "request:");
-        echo "api: $match[1].$match[2]\ncontent: \n$content\n";
-
-        $obj = new $class($this->serv, $request);
-        return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
     }
 
     private function trans_listener($listen)
@@ -185,7 +130,7 @@ class swoole
         $this->is_sington = isset($config['is_sington'])?$config['is_sington']:false;
         $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
         echo $this->pid_file;
-        $this->title = $config['server_name'];
+        $this->title = 'swoole_'.$config['server_name'];
 
         Log::$log_level = $config['log_level'];
         
@@ -195,7 +140,19 @@ class swoole
         foreach($this->listen as $v) {
             if ($i==0) {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
-                $this->serv = new swoole_http_server($v['host'],$v['port']);
+                if ( !isset($this->config['swoole']['server_type']) ) {
+                    $this->config['swoole']['server_type'] = 'http';
+                }
+                if ( $this->config['swoole']['server_type'] === 'http' ) {
+                    log::prn_log(NOTICE, "start http server");
+                    $this->serv = new swoole_http_server($v['host'],$v['port']);
+                } else
+                if ( $this->config['swoole']['server_type'] === 'tcp' ) {
+                    log::prn_log(NOTICE, "start tcp server");
+                    $this->serv = new swoole_server($v['host'],$v['port']);
+                } else {
+                    log::prn_log(ERROR, "server_type [{$this->config['swoole']['server_type']}] error");
+                }
             } else {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
                 $this->serv->addlistener($v['host'],$v['port'],SWOOLE_SOCK_TCP);
@@ -205,14 +162,15 @@ class swoole
 
         $this->serv->set($this->config['swoole']);
         $this->serv->on('Start',        array($this, 'my_onStart'));
-        $this->serv->on('Connect',      array($this, 'my_onConnect'));
-        $this->serv->on('Request',      array($this, 'my_onRequest'));
+        $this->serv->on('Connect',      array($this, 'my_onConnect'));        
         $this->serv->on('Close',        array($this, 'my_onClose'));
         $this->serv->on('Shutdown',     array($this, 'my_onShutdown'));
         $this->serv->on('WorkerStart',  array($this, 'my_onWorkerStart'));
         $this->serv->on('WorkerStop',   array($this, 'my_onWorkerStop'));
         $this->serv->on('WorkerError',  array($this, 'my_onWorkerError'));
         $this->serv->on('ManagerStart', array($this, 'my_onManagerStart'));
+        
+        if (method_exists($this, '_init')) $this->_init();
     }
 
     public function on($event, $func)
@@ -248,10 +206,7 @@ class swoole
 
     //----创建pid
     private function createPidfile(){
-        $info_dir = dirname($this->pid_file);
-        if (!is_dir($info_dir)){
-            mkdir($info_dir);
-        }
+        if (!is_dir(self::$info_dir)) mkdir(self::$info_dir);
         $fp = fopen($this->pid_file, 'w') or die("cannot create pid file");
         fwrite($fp, posix_getpid());
         fclose($fp);
@@ -264,8 +219,6 @@ class swoole
         if ($this->is_sington==true){
             $this->checkPidfile();
         }
-        $this->createPidfile();
-
-        $this->serv->start();
+        $this->createPidfile();        
     }
 }

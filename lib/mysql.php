@@ -201,5 +201,3 @@ class mysqldb extends mysqli
         return true;
     }
 }
-
-$db=null;
