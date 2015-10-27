@@ -1,0 +1,21 @@
+[51043.2015-10-26 21:54:52][DEBUG]   log_level change to 1
+[51043.2015-10-26 21:54:52][DEBUG]   reload ok!
+[51043.2015-10-26 21:54:52][DEBUG]   WorkerStart: WorkerId=0|WorkerPid=51043
+[51043.2015-10-26 21:54:52][INFO]    database connect ok (127.0.0.1,3306)!
+[2015-10-26 21:57:11 #51036.0]	NOTICE	Server is shutdown now.
+[51043.2015-10-26 21:57:11][NOTICE]  WorkerStop: WorkerId=0|WorkerPid=51043
+[51036.2015-10-26 21:57:11][NOTICE]  Server: onShutdown
+[51088.2015-10-26 21:57:20][DEBUG]   log_level change to 1
+[51088.2015-10-26 21:57:20][DEBUG]   reload ok!
+[51088.2015-10-26 21:57:20][DEBUG]   WorkerStart: WorkerId=0|WorkerPid=51088
+[51088.2015-10-26 21:57:20][INFO]    database connect ok (127.0.0.1,3306)!
+[2015-10-26 21:57:37 #51077.0]	NOTICE	Server is shutdown now.
+[51088.2015-10-26 21:57:37][NOTICE]  WorkerStop: WorkerId=0|WorkerPid=51088
+[51077.2015-10-26 21:57:38][NOTICE]  Server: onShutdown
+[51130.2015-10-26 21:59:20][DEBUG]   log_level change to 1
+[51130.2015-10-26 21:59:20][DEBUG]   reload ok!
+[51130.2015-10-26 21:59:20][DEBUG]   WorkerStart: WorkerId=0|WorkerPid=51130
+[51130.2015-10-26 21:59:20][INFO]    database connect ok (127.0.0.1,3306)!
+[2015-10-26 21:59:33 #51123.0]	NOTICE	Server is shutdown now.
+[51130.2015-10-26 21:59:33][NOTICE]  WorkerStop: WorkerId=0|WorkerPid=51130
+[51123.2015-10-26 21:59:33][NOTICE]  Server: onShutdown
