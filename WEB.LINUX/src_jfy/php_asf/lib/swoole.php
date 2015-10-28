@@ -92,6 +92,8 @@ class swoole
                               'persistent' => false, //MySQL长连接
         ));
         $this->M->connect();
+        
+        $this->route = new http_route(Worker_conf::$route_config);
 
         if ( isset($this->on_func['workerstart']) ) call_user_func($this->on_func['workerstart'], $serv, $worker_id);
     }
@@ -269,8 +271,6 @@ class swoole
         if ( $this->server_type === 'tcp' ) {
             $this->serv->on('Receive', array($this, 'my_onReceive'));
         } 
-        
-        $this->route = new http_route(Swoole_conf::$route_config);
     }
 
     public function on($event, $func)

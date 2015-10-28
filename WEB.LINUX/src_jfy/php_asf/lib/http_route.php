@@ -3,9 +3,9 @@
 class http_route{
     private $dispatcher;
     private $default_route = [
-        ['POST', '/{controller}/{action}[/]',        'controller_action'],
-        ['POST', '/{controller}[/]',                 'controller'],         
-        [['GET','POST'], '/{controller}/{param:.+}', 'controller_param'],
+        ['POST', '/{controller}/{action}[/]',        '_handler.controller_action'],
+        ['POST', '/{controller}[/]',                 '_handler.controller'],         
+        [['GET','POST'], '/{controller}/{param:.+}', '_handler.controller_param'],
     ]; 
     private $config_route;     
     
@@ -32,8 +32,14 @@ class http_route{
                 return 405;
                 break;
             case FastRoute\Dispatcher::FOUND:
-                $handler = $route_info[1];
-                return call_user_func($handler, $route_info);
+                $handler = $route_info[1][1];
+                if ( substr($handler,0,9) === '_handler.' ) {
+                    return call_user_func(array($this,substr($handler,9)), $route_info);                    
+                } else {
+                    list($ret['class'],$ret['fun']) = explode('.', $handler);
+                    $ret['param'] = $route_info[2];
+                    return $ret;
+                }
                 break;
         }
     }
