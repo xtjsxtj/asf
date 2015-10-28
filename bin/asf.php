@@ -42,9 +42,9 @@ if ( !isset($servers[$param['server_name']]) ) {
 }
 $param['server_file'] = $servers[$param['server_name']];
 $param['server_path'] = dirname($param['server_file']);
-$param['server_examples_test_path'] = dirname($servers['test']);
 
 if (  $param['cmd'] === 'init' ) {
+        $param['server_examples_test_path'] = dirname($servers['test_http']);
         app_init($param);
         exit;
 }

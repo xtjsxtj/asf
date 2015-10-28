@@ -1,6 +1,7 @@
 <?php
 
 /**
+ * http请求处理控制器底层父类
  * @author jiaofuyou@qq.com
  * @date   2015-10-25
  */
