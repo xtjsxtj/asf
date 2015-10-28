@@ -1,16 +1,20 @@
 <?php
 
-class http_route{
+/**
+ * ASF http路由分析处理类
+ * @author jiaofuyou@qq.com
+ * @date   2015-10-25
+ * 
+ * 使用第三方fast-route库
+ * https://github.com/nikic/FastRoute
+ */
+
+class route{
     private $dispatcher;
-    private $default_route = [
-        ['POST', '/{controller}/{action}[/]',        '_handler.controller_action'],
-        ['POST', '/{controller}[/]',                 '_handler.controller'],         
-        [['GET','POST'], '/{controller}/{param:.+}', '_handler.controller_param'],
-    ]; 
     private $config_route;     
     
     public function __construct($config) {
-        $this->config_route = array_merge($config, $this->default_route);
+        $this->config_route = array_merge($config, Route_config::$default_route);
         //var_dump($this->config_route);        
         $this->dispatcher = FastRoute\simpleDispatcher(function(FastRoute\RouteCollector $r) {
             foreach($this->config_route as $route){
