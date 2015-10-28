@@ -13,6 +13,7 @@ class swoole
     private $pid_file;
     private $listen;    
     private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
+    private $server_type;
     protected $config;        
     public $serv;
     public $on_func;
@@ -94,6 +95,83 @@ class swoole
         if ( isset($this->on_func['workerstart']) ) call_user_func($this->on_func['workerstart'], $serv, $worker_id);
     }
 
+    public function my_onReceive($serv, $fd, $from_id, $data)
+    {
+        //Log::prn_log(DEBUG, "WorkerReceive: client[$fd@{$serv->connection_info($fd)['remote_ip']}] : \n$data");
+        $reqdata=call_user_func($this->on_func['input'], $serv, $fd, $from_id, $data);
+        if ( $reqdata === false ) return;
+        if ( $reqdata === -1 ) {
+            $serv->close($fd);
+            return;
+        }        
+        
+        $request = [
+            'conninfo' => $this->serv->connection_info($fd),
+            'fd' => $fd,
+            'from_id' => $form_id,
+            'content' => $reqdata['content'],  //这个字段值由input中处理，该值会再传入request中处理
+        ];
+
+        Log::prn_log(NOTICE, "request:");
+        echo "$request\n";        
+        
+        $response=call_user_func($this->on_func['request'], $serv, $request, NULL);
+ 
+        //Log::prn_log(DEBUG, "WorkerReponse: client[$fd@{$serv->connection_info($fd)['remote_ip']}] : \n$response");
+        $serv->send($fd, $response);
+
+        return;
+    }
+    
+    private function response($response, $status, $result, $header = array())
+    {
+        if ( $status <> 200 ) {
+            Log::prn_log(ERROR, "$status $result");
+            $response->status($status);
+            $result = json_encode(array('error'=>$result, 'status'=>$status));
+        }
+
+        Log::prn_log(NOTICE, "response:");
+        echo "$result\n";
+
+        foreach($header as $key => $val) $response->header($key, $val);
+        $response->end($result);    
+    }
+
+    function my_onRequest(swoole_http_request $request, swoole_http_response $response)
+    {
+        //var_dump($request);
+            
+        if ( $request->server['request_method'] <> 'POST' ) {
+            return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
+        }
+
+        $uri = $request->server['request_uri'];
+        if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
+            return $this->response($response, 404, "'$uri' is not found!");  
+        }  
+        $class = $match[1].'_controller';
+        $fun = $match[2];
+        //判断类是否存在
+        if (! class_exists($class)  || !method_exists(($class),($fun))) {
+            return $this->response($response, 404, " class or fun not found class == $class fun == $fun");
+        };
+
+        $content = $request->rawContent();
+        if ( $content === false ) $content = '';
+        if ( $content === '' ) 
+        {
+            Log::prn_log(ERROR, $content);
+            return $this->response($response, 415, 'post content is empty!');        
+        }
+
+        Log::prn_log(NOTICE, "request:");
+        echo "api: $match[1].$match[2]\ncontent: \n$content\n";
+
+        $obj = new $class($this->serv, $request);
+        return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
+    }
+    
     function my_onWorkerStop($serv, $worker_id)
     {
         Log::prn_log(NOTICE,"WorkerStop: WorkerId={$serv->worker_id}|WorkerPid=".posix_getpid());
@@ -131,6 +209,7 @@ class swoole
         $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
         echo $this->pid_file;
         $this->title = 'swoole_'.$config['server_name'];
+        $this->server_type = isset($this->config['swoole']['server_type'])?$this->config['swoole']['server_type']:'http';
 
         Log::$log_level = $config['log_level'];
         
@@ -140,7 +219,17 @@ class swoole
         foreach($this->listen as $v) {
             if ($i==0) {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
-                $this->new_swoole_server($v['host'],$v['port']);
+                if ( $this->server_type === 'http' ) {
+                    log::prn_log(NOTICE, "start http server");
+                    $this->serv = new swoole_http_server($v['host'],$v['port']);
+                } else
+                if ( $this->server_type === 'tcp' ) {
+                    log::prn_log(NOTICE, "start tcp server");
+                    $this->serv = new swoole_server($v['host'],$v['port']);
+                } else {
+                    log::prn_log(ERROR, "server_type [$this->server_type] error");
+                    exit;
+                }                
             } else {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
                 $this->serv->addlistener($v['host'],$v['port'],SWOOLE_SOCK_TCP);
@@ -157,8 +246,12 @@ class swoole
         $this->serv->on('WorkerStop',   array($this, 'my_onWorkerStop'));
         $this->serv->on('WorkerError',  array($this, 'my_onWorkerError'));
         $this->serv->on('ManagerStart', array($this, 'my_onManagerStart'));
-        
-        if (method_exists($this, '_init')) $this->_init();
+        if ( $this->server_type === 'http' ) {
+            $this->serv->on('Request', array($this, 'my_onRequest'));
+        }
+        if ( $this->server_type === 'tcp' ) {
+            $this->serv->on('Receive', array($this, 'my_onReceive'));
+        }        
     }
 
     public function on($event, $func)
@@ -207,6 +300,21 @@ class swoole
         if ($this->is_sington==true){
             $this->checkPidfile();
         }
-        $this->createPidfile();        
+        $this->createPidfile();
+        
+        if ( $this->server_type === 'tcp' ) {
+            //input回调函数负责将tcp分段流数据按协议长度组合成一条完整的请求包
+            if ( !function_exists($this->on_func['input']) ) {
+                Log::prn_log(ERROR, 'on_input is must by register!');
+                exit;
+            }
+            //request回调函数负责解析TCP协议
+            if ( !function_exists($this->on_func['request']) ) {
+                Log::prn_log(ERROR, 'on_request is must by register!');
+                exit;
+            } 
+        }
+        
+        $this->serv->start();
     }
 }
