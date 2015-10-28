@@ -3,7 +3,9 @@
 /**
  * Swoole封装类
  * @author jiaofuyou@qq.com
- * @date   2014-11-25
+ * @date   2015-10-25
+ * 
+ * http://www.swoole.com/
  */
 
 class swoole
@@ -15,6 +17,7 @@ class swoole
     private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
     private $server_type;
     private $route;
+    private $shutdown=false;
     protected $config;        
     public $serv;
     public $on_func;
@@ -50,6 +53,7 @@ class swoole
             unlink($this->pid_file);
             Log::prn_log(DEBUG, "delete pid file " . $this->pid_file);
         }
+        $this->shutdown = true;
     }
 
     function my_onClose($serv, $fd, $from_id)
@@ -93,7 +97,9 @@ class swoole
         ));
         $this->M->connect();
         
-        $this->route = new http_route(Worker_conf::$route_config);
+        if ( $this->server_type === 'http' ) {
+            $this->route = new route(Worker_conf::$route_config);
+        }
 
         if ( isset($this->on_func['workerstart']) ) call_user_func($this->on_func['workerstart'], $serv, $worker_id);
     }
@@ -112,13 +118,13 @@ class swoole
             'conninfo' => $this->serv->connection_info($fd),
             'fd' => $fd,
             'from_id' => $from_id,
-            'content' => $reqdata['content'],  //这个字段值由input中处理，该值会再传入request中处理
+            'content' => $reqdata,  //这个字段值由input中处理，该值会再传入request中处理
         ];
 
         Log::prn_log(NOTICE, "request:");
-        echo "$request\n";        
+        var_dump($request);        
         
-        $response=call_user_func($this->on_func['request'], $serv, $request, NULL);
+        $response=call_user_func($this->on_func['request'], $serv, $request);
  
         //Log::prn_log(DEBUG, "WorkerReponse: client[$fd@{$serv->connection_info($fd)['remote_ip']}] : \n$response");
         $serv->send($fd, $response);
@@ -221,8 +227,9 @@ class swoole
         }
     }
     
-    public function __construct($config)
+    public function __construct()
     {
+        $config = Swoole_conf::$config;
         $this->config['swoole'] = $config;
         $this->is_sington = isset($config['is_sington'])?$config['is_sington']:false;
         $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
@@ -253,6 +260,7 @@ class swoole
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
                 $this->serv->addlistener($v['host'],$v['port'],SWOOLE_SOCK_TCP);
             }
+            
             $i++;
         }
 
@@ -335,5 +343,6 @@ class swoole
         }
         
         $this->serv->start();
+        if ( !$this->shutdown) log::prn_log(ERROR, "swoole start error: ".swoole_errno().','.swoole_strerror(swoole_errno()));
     }
 }
