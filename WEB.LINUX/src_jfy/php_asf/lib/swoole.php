@@ -14,6 +14,7 @@ class swoole
     private $listen;    
     private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
     private $server_type;
+    private $route;
     protected $config;        
     public $serv;
     public $on_func;
@@ -108,7 +109,7 @@ class swoole
         $request = [
             'conninfo' => $this->serv->connection_info($fd),
             'fd' => $fd,
-            'from_id' => $form_id,
+            'from_id' => $from_id,
             'content' => $reqdata['content'],  //这个字段值由input中处理，该值会再传入request中处理
         ];
 
@@ -141,17 +142,34 @@ class swoole
     function my_onRequest(swoole_http_request $request, swoole_http_response $response)
     {
         //var_dump($request);
-            
-        if ( $request->server['request_method'] <> 'POST' ) {
+        
+        $method = $request->server['request_method'];
+        $uri = $request->server['request_uri'];
+        
+        Log::prn_log(NOTICE, "request:");
+        echo "$method $uri\n";
+        
+//        if ( $request->server['request_method'] <> 'POST' ) {
+//            return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
+//        }
+//        if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
+//            return $this->response($response, 404, "'$uri' is not found!");  
+//        }  
+//        $class = $match[1].'_controller';
+//        $fun = $match[2];
+        
+        $route_info = $this->route->handel_route($method, $uri);        
+        if ( $route_info === 405 ) {
             return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
         }
-
-        $uri = $request->server['request_uri'];
-        if ( !preg_match('#^/(\w+)/(\w+)$#', $uri, $match) ) {
+        if ( $route_info === 404 ) {
             return $this->response($response, 404, "'$uri' is not found!");  
         }  
-        $class = $match[1].'_controller';
-        $fun = $match[2];
+        //log::prn_log(DEBUG, json_encode($route_info));
+        $class = $route_info['class'].'_controller';
+        $fun = $route_info['fun'];
+        $param = isset($route_info['param'])?$route_info['param']:[];
+                
         //判断类是否存在
         if (! class_exists($class)  || !method_exists(($class),($fun))) {
             return $this->response($response, 404, " class or fun not found class == $class fun == $fun");
@@ -159,17 +177,16 @@ class swoole
 
         $content = $request->rawContent();
         if ( $content === false ) $content = '';
-        if ( $content === '' ) 
+
+        if ( ($method === 'POST') and ($content === '') ) 
         {
             Log::prn_log(ERROR, $content);
             return $this->response($response, 415, 'post content is empty!');        
-        }
-
-        Log::prn_log(NOTICE, "request:");
-        echo "api: $match[1].$match[2]\ncontent: \n$content\n";
-
+        }        
+        echo "\n$content\n";
+                
         $obj = new $class($this->serv, $request);
-        return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
+        return $this->response($response, 200, $obj->$fun($param), array('Content-Type' => 'application/json'));
     }
     
     function my_onWorkerStop($serv, $worker_id)
@@ -251,7 +268,9 @@ class swoole
         }
         if ( $this->server_type === 'tcp' ) {
             $this->serv->on('Receive', array($this, 'my_onReceive'));
-        }        
+        } 
+        
+        $this->route = new http_route(Swoole_conf::$route_config);
     }
 
     public function on($event, $func)
