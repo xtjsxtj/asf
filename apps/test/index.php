@@ -16,14 +16,6 @@ $server->on('input', 'input');
 $server->on('request', 'request');
 $server->start();
 
-function  __autoload($className) {  
-    $file = BASE_PATH.'/controller' . "/$className.php";
-    if ( file_exists($file) ) {
-        log::prn_log(INFO, 'require_once: '. $file);
-        require_once BASE_PATH.'/controller' . "/$className.php";
-    }
-} 
-
 function input($serv, $fd, $from_id, $reqdata){
     
 }
