@@ -2,7 +2,7 @@
 
 class Worker_conf{
     public static $config=array(
-        'log_level' => INFO,
+        'log_level' => NOTICE,
         'mysql' => array(
             'socket' => '/tmp/mysql.sock',
             'host' => '172.16.18.114',
