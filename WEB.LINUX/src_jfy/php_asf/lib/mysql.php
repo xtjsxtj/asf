@@ -20,6 +20,8 @@ class mysqldb extends mysqli
 {
     public $conn = null;
     public $config;
+    private $tabname;
+    private $wherestr;
 
     public function __construct($config)
     {
@@ -35,6 +37,11 @@ class mysqldb extends mysqli
         }
     }
 
+    public function __get($tabname) {
+            $this->tabname = $tabname;
+            return $this;
+    }
+        
     public function connect($host = NULL, $user = NULL, $password = NULL, $database = NULL, $port = NULL, $socket = NULL)
     {
         $config = $this->config;
@@ -111,7 +118,7 @@ class mysqldb extends mysqli
         }
         return true;
     }
-
+    
     /**
      * 查询唯一记录
      * @param string $sql 执行的SQL语句
@@ -151,6 +158,35 @@ class mysqldb extends mysqli
 
     /**
      * 插入单条记录
+     * @param array $row 插入数据字段数组['id' => 123, 'name' => 'jfy']
+     * @param bool $flag 是否打印成功跟踪，默认为true
+     * @return id | false 成功返回自增字段ID，失败返回false
+     * @see mysql->tabname->insert(['id' => 123, 'name' => 'jfy']);
+     */
+    public function insert($data,$flag=true){
+        $sql = "insert into $this->tabname (";
+        $i = 0;
+        foreach ($data as $field => $val) {
+            $sql .= $i==0?$field:','.$field;
+            $i++;
+        }
+        $sql .= ") values (";
+        $i = 0;
+        foreach ($data as $field => $val) {
+            $val = addslashes($val);
+            $sql .= $i==0?"'$val'":",'$val'";
+            $i++;
+        }        
+        $sql .= ")";
+        
+        if ( $this->insert_one($sql, $flag) === false ) return false;
+        return ['id' => $this->insert_id];
+        
+        return true;
+    }
+    
+    /**
+     * 插入单条记录
      * @param string $sql 执行的SQL语句
      * @return true | false
      * $this->insert_id 为自增字段ID
@@ -167,9 +203,36 @@ class mysqldb extends mysqli
 
     /**
      * 更新单条记录
+     * @param array $row 更新数据字段数组['name' => 'jfy']
+     * @param array $cond 更新条件字段数组['id' => 123]，顺序与索引顺序相同
+     * @return true | false
+     * @see $this->affected_rows 为更新记录数
+     * @see mysql->tabname->update(['name' => 'jfy'],['id' => 123]);
+     */
+    public function update($data,$cond){
+        $sql = "update $this->tabname set ";
+        $i = 0;
+        foreach ($data as $field => $val) {
+            $val = addslashes($val);
+            $sql .= $i==0?"$field='$val'":",$field='$val'";
+            $i++;
+        }
+        $sql .= " where ";
+        $i = 0;
+        foreach ($cond as $field => $val) {
+            $val = addslashes($val);
+            $sql .= $i==0?"$field='$val'":" and $field='$val'";
+            $i++;
+        }
+        
+        return $this->update_one($sql);
+    }
+    
+    /**
+     * 更新单条记录
      * @param string $sql 执行的SQL语句
      * @return true | false
-     * @$this->affected_rows 为更新记录数
+     * @see $this->affected_rows 为更新记录数
      */
     public function update_one($sqlstr){
         if ( !($result = $this->query($sqlstr)) ) {
@@ -190,6 +253,7 @@ class mysqldb extends mysqli
      * 更新多条记录
      * @param string $sql 执行的SQL语句
      * @return true | false
+     * @see $this->affected_rows 为更新记录数
      */
     public function update_more($sqlstr){
         if ( !($result = $this->query($sqlstr)) ) {
@@ -201,4 +265,47 @@ class mysqldb extends mysqli
 
         return true;
     }
+        
+    /**
+     * 删除单条记录
+     * @param string $tabname 表名
+     * @param array $cond更新条件字段数组['id' => 123]，顺序与索引顺序相同
+     * @return true | false
+     * @see $this->affected_rows 为删除记录数
+     * @see mysql->tabname->delete(['id' => 123]);
+     */
+    public function delete($cond){
+        $sql = "delete from $this->tabname where ";
+        $i = 0;
+        foreach ($cond as $field => $val) {
+            $val = addslashes($val);
+            $sql .= $i==0?"$field='$val'":" and $field='$val'";
+            $i++;
+        }
+        
+        return $this->delete_one($sql);
+    }
+    
+    /**
+     * 删除单条记录
+     * @param string $sql 执行的SQL语句
+     * @return true | false
+     * @see $this->affected_rows 为删除记录数
+     */
+    public function delete_one($sqlstr){
+        if ( !($result = $this->query($sqlstr)) ) {
+            Log::prn_log(ERROR, "update_one,($sqlstr) error,{$this->errno},{$this->error}!");
+            return false;
+        }
+        $rows = $this->affected_rows;
+        if ( $rows != 1 ) {
+          Log::prn_log(ERROR, "delete_one ,($sqlstr) affected_rows is $rows!");
+          return false;
+        }
+        Log::prn_log(INFO, 'delete_one ok: '.$sqlstr);
+
+        return true;
+    }
+    
 }
+

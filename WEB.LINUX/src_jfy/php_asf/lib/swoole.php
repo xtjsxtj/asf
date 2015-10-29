@@ -186,8 +186,8 @@ class swoole
             return $this->response($response, 415, 'post content is empty!');        
         }        
                 
-        $obj = new $class($this, $request);
-        return $this->response($response, 200, $obj->$fun($param), array('Content-Type' => 'application/json'));
+        $obj = new $class($this, $request, $param);
+        return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
     }
     
     function my_onWorkerStop($serv, $worker_id)
