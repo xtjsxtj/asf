@@ -2,14 +2,14 @@
 
 class Worker_conf{
     public static $config=array(
-        'log_level' => NOTICE,
+        'log_level' => DEBUG,
         'mysql' => array(
             'socket' => '/tmp/mysql.sock',
-            'host' => '172.16.18.114',
+            'host' => 'localhost',
             'port' => 3306,            
             'user' => 'root',
             'password' => 'cpyf',
-            'database' => 'skytone',
+            'database' => 'test',
             'charset' => 'utf8',
         )
     );

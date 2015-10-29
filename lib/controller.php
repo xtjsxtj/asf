@@ -12,11 +12,12 @@ class controller {
     protected $request;
     protected $content;
     
-    public function __construct($server, $request) {
+    public function __construct($server, $request, $param) {
         $this->server = $server;
         $this->mysql = $server->mysql;
         $this->request = $request;
         $this->content = $request->rawContent();
+        $this->param = $param;
         
         if (method_exists($this, '_init')) $this->_init();
     }
