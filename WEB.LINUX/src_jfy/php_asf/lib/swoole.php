@@ -18,10 +18,10 @@ class swoole
     private $server_type;
     private $route;
     private $shutdown=false;
-    protected $config;        
+    private $config;        
     public $serv;
-    public $on_func;
-    public $M;    
+    public $mysql;    
+    public $on_func;    
     
     private function my_set_process_name($title)
     {
@@ -88,14 +88,10 @@ class swoole
             Log::prn_log(DEBUG,"WorkerStart: WorkerId={$serv->worker_id}|WorkerPid={$serv->worker_pid}");
         }
 
-        $this->M = new mysqldb(array('host'    => $this->config['server']['mysql_host'],
-                              'port'    => $this->config['server']['mysql_port'],
-                              'user'    => $this->config['server']['mysql_user'],
-                              'passwd'  => $this->config['server']['mysql_passwd'],
-                              'name'    => $this->config['server']['mysql_db'],
-                              'persistent' => false, //MySQL长连接
-        ));
-        $this->M->connect();
+        $this->mysql = new mysqldb($this->config['mysql']);
+        if ( !$this->mysql->connect() ) {
+            $this->serv->shutdown();
+        }
         
         if ( $this->server_type === 'http' ) {
             $this->route = new route(Worker_conf::$route_config);
@@ -140,8 +136,7 @@ class swoole
             $result = json_encode(array('error'=>$result, 'status'=>$status));
         }
 
-        Log::prn_log(NOTICE, "response:");
-        echo "$result\n";
+        Log::prn_log(NOTICE, "RESPONSE $result");
 
         foreach($header as $key => $val) $response->header($key, $val);
         $response->end($result);    
@@ -153,9 +148,9 @@ class swoole
         
         $method = $request->server['request_method'];
         $uri = $request->server['request_uri'];
+        $content = $request->rawContent();
         
-        Log::prn_log(NOTICE, "request:");
-        echo "$method $uri\n";
+        Log::prn_log(NOTICE, "REQUEST $method $uri $content");
         
 //        if ( $request->server['request_method'] <> 'POST' ) {
 //            return $this->response($response, 405, 'Method Not Allowed, ' . $request->server['request_method']);     
@@ -182,8 +177,7 @@ class swoole
         if (! class_exists($class)  || !method_exists(($class),($fun))) {
             return $this->response($response, 404, " class or fun not found class == $class fun == $fun");
         };
-
-        $content = $request->rawContent();
+        
         if ( $content === false ) $content = '';
 
         if ( ($method === 'POST') and ($content === '') ) 
@@ -191,9 +185,8 @@ class swoole
             Log::prn_log(ERROR, $content);
             return $this->response($response, 415, 'post content is empty!');        
         }        
-        echo "\n$content\n";
                 
-        $obj = new $class($this->serv, $request);
+        $obj = new $class($this, $request);
         return $this->response($response, 200, $obj->$fun($param), array('Content-Type' => 'application/json'));
     }
     
@@ -287,7 +280,7 @@ class swoole
     }
 
     public function reload_set($config){
-        $this->config['server'] = $config['server'];
+        $this->config['mysql'] = $config['mysql'];
         Log::$log_level = $config['log_level'];
         Log::prn_log(DEBUG, 'log_level change to '.Log::$log_level);
     }

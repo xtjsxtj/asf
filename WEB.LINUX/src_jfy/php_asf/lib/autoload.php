@@ -17,7 +17,7 @@ spl_autoload_register(
     function($className) {  
         $file = BASE_PATH.'/controller' . "/$className.php";
         if ( file_exists($file) ) {
-            log::prn_log(INFO, 'require_once: '. $file);
+            log::prn_log(DEBUG, 'require_once: '. $file);
             require_once BASE_PATH.'/controller' . "/$className.php";
         }
     } 

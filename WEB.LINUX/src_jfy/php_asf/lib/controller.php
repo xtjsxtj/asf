@@ -7,12 +7,14 @@
  */
 
 class controller { 
-    protected $server;
+    protected $server;    
+    protected $mysql;
     protected $request;
     protected $content;
     
     public function __construct($server, $request) {
         $this->server = $server;
+        $this->mysql = $server->mysql;
         $this->request = $request;
         $this->content = $request->rawContent();
         
