@@ -2,13 +2,15 @@
 
 class Worker_conf{
     public static $config=array(
-        'log_level' => DEBUG,
-        'server' => array(
-            'mysql_host' => '127.0.0.1',
-            'mysql_port' => 3306,
-            'mysql_user' => 'root',
-            'mysql_passwd' => 'cpyf',
-            'mysql_db' => 'test',
+        'log_level' => INFO,
+        'mysql' => array(
+            'socket' => '/tmp/mysql.sock',
+            'host' => 'localhost',
+            'port' => 3306,            
+            'user' => 'root',
+            'password' => 'cpyf',
+            'database' => 'test',
+            'charset' => 'utf8',
         )
-    );    
+    );
 }

@@ -8,8 +8,8 @@
         'host'       => 'localhost',  //mysql主机
         'port'       => 3306,         //mysql端口
         'user'       => 'user',       //mysql用户，必须参数
-        'passwd'     => 'password',   //mysql密码，必须参数
-        'name'       => 'dbname',     //数据库名称，必须参数
+        'password'   => 'password',   //mysql密码，必须参数
+        'database'   => 'database',   //数据库名称，必须参数
         'persistent' => false,        //MySQL长连接
         'charset'    => 'utf8',       //连接数据库字符集
         'sqls'       => 'set wait_timeout=24*60*60*31;set wait_timeout=24*60*60*31'  
@@ -21,12 +21,13 @@ class mysqldb extends mysqli
     public $conn = null;
     public $config;
 
-    public function __construct($db_config)
+    public function __construct($config)
     {
-        if ( !isset($db_config['host']) ) $db_config['host'] = 'localhost';
-        if ( !isset($db_config['port']) ) $db_config['port'] = 3306;
-        $this->config = $db_config;
-        if ( isset($db_config['persistent'])?$db_config['persistent']:false )
+        if ( !isset($config['host']) ) $config['host'] = 'localhost';
+        if ( !isset($config['port']) ) $config['port'] = 3306;
+        if ( !isset($config['socket']) ) $config['sock'] = '/tmp/mysql.sock';
+        $this->config = $config;
+        if ( isset($config['persistent'])?$config['persistent']:false )
         {
             $this->config['host'] = 'p:'.$this->config['host'];
             //$host：Prepending host by p: opens a persistent connection,'p:172.16.18.114'
@@ -36,23 +37,23 @@ class mysqldb extends mysqli
 
     public function connect($host = NULL, $user = NULL, $password = NULL, $database = NULL, $port = NULL, $socket = NULL)
     {
-        $db_config = $this->config;
-        @parent::connect($db_config['host'], $db_config['user'], $db_config['passwd'], $db_config['name'], $db_config['port']);
+        $config = $this->config;
+        if ( $config['host'] === 'localhost' ) {
+            @parent::connect($config['host'], $config['user'], $config['password'], $config['database'], 0, $config['socket']);
+        } else {
+            @parent::connect($config['host'], $config['user'], $config['password'], $config['database'], $config['port']);
+        }
         if( $this->connect_errno ){
             Log::prn_log(ERROR, "database connect failed: ".$this->connect_error."!");
             return false;
         }
-        Log::prn_log(INFO, "database connect ok ({$db_config['host']},{$db_config['port']})!");
-        if ( isset($db_config['charset']) ) {
-            Log::prn_log(INFO, "set charset names {$db_config['charset']}");
-            $this->query("set names {$db_config['charset']}");
-        }       
-        if ( isset($db_config['sqls']) ) {
-            Log::prn_log(INFO, "set charset names {$db_config['charset']}");
-            $this->query("set names {$db_config['charset']}");
+        Log::prn_log(INFO, "database connect ok ({$config['host']},{$config['port']})!");
+        if ( isset($config['charset']) ) {
+            Log::prn_log(INFO, "set charset names {$config['charset']}");
+            $this->query("set names {$config['charset']}");
         }    
-        if ( isset($db_config['sqls']) ) {
-            $sqls = explode(";", $db_config['sqls']);
+        if ( isset($config['sqls']) ) {
+            $sqls = explode(";", $config['sqls']);
             foreach($sqls as $sql)
             {
                 Log::prn_log(INFO, "$sql");
