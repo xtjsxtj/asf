@@ -11,6 +11,7 @@ class controller {
     protected $mysql;
     protected $request;
     protected $content;
+    protected $param;
     
     public function __construct($server, $request, $param) {
         $this->server = $server;

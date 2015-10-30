@@ -122,6 +122,7 @@ class mysqldb extends mysqli
     /**
      * 查询唯一记录
      * @param string $sql 执行的SQL语句
+     * @flag bool 查询不到或查询到多条是否打印ERROR log
      * @return row(array) | false
      */
     public function select_one($sqlstr,$flag=true){
@@ -158,7 +159,7 @@ class mysqldb extends mysqli
 
     /**
      * 插入单条记录
-     * @param array $row 插入数据字段数组['id' => 123, 'name' => 'jfy']
+     * @param array $data 插入数据字段数组['id' => 123, 'name' => 'jfy']
      * @param bool $flag 是否打印成功跟踪，默认为true
      * @return id | false 成功返回自增字段ID，失败返回false
      * @see mysql->tabname->insert(['id' => 123, 'name' => 'jfy']);
@@ -203,7 +204,7 @@ class mysqldb extends mysqli
 
     /**
      * 更新单条记录
-     * @param array $row 更新数据字段数组['name' => 'jfy']
+     * @param array $data 更新数据字段数组['name' => 'jfy']
      * @param array $cond 更新条件字段数组['id' => 123]，顺序与索引顺序相同
      * @return true | false
      * @see $this->affected_rows 为更新记录数
@@ -268,7 +269,6 @@ class mysqldb extends mysqli
         
     /**
      * 删除单条记录
-     * @param string $tabname 表名
      * @param array $cond更新条件字段数组['id' => 123]，顺序与索引顺序相同
      * @return true | false
      * @see $this->affected_rows 为删除记录数
