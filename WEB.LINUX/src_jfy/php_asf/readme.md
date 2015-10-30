@@ -10,6 +10,24 @@ App Server Framework（ASF）
 - 至于性能，可以很低调的说：相当高，具体可以参考swoole相关文档：
 http://www.swoole.com/
 
+**安装运行**
+-----------
+```
+tar zxvf asf.tar.gz  
+cd asf  
+php ./bin/asf.php test_http start  
+
+也可以直接进入具体server目录直接运行入口脚本文件：  
+cd asf/apps/test_http
+php ./index.php
+
+查看当前server进程状态：
+php asf/bin/asf.php test_http status
+
+查看所有server运行状态：
+php asf/bin/asf.php list
+```
+
 **目录结构**
 -----------
 ```
@@ -22,7 +40,7 @@ ASF
             controller               #应用控制器目录
                 base_controller.php  #业务相关控制器的基类
                 index_controller.php #业务相关具体控制器类
-            index.php                #应用入口主文件，可以单独调用，可以通过bin/asf.php说统一调用
+            index.php                #应用入口主文件(不限于该名称)，可以单独调用，可以通过bin/asf.php说统一调用
     bin
         asf.php                      #多server起动状态监控shell脚本
         asf.ini                      #多server列表配置文件
@@ -36,6 +54,12 @@ ASF
         route.php                    #http route解析类
         swoole.php                   #swoole扩展底层类        
 ```
+
+**配置**
+-------
+* ASF框架程序配置分为两部分，一个是系统进程的配置server_conf，不能动态修改。
+* 另一个是工作进程的配置worker_conf，可以动态修改，修改后通过asf.php server_name reload生效。  
+* 下面分开详细介绍。
 
 **server_conf.php配置文件详解**
 -----------------------------
