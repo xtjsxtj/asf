@@ -94,6 +94,18 @@ server类型，必须配置，目前支持http和tcp两种server类型。
 * log_file
 跟踪文件，必须配置。
 
+* 最简配置
+
+    ```php
+    $config=array(
+        'server_name' => 'test_http',  //server_name
+        'log_level' => NOTICE,         //log_level
+        'listen' => 9501,              //listen port
+        'log_file' => '/asf/apps/test_http/index.log',  //logfile
+    );
+    ```
+
+
 **worker_conf.php配置文件详解**
 -----------------------------
 该配置文件分成三个部分。
@@ -116,6 +128,21 @@ server类型，必须配置，目前支持http和tcp两种server类型。
 * route  
 底层根据这里配置的跌幅规则，将http不同的uri请求分配给相应的控制器处理。
 具体规则下面详细说明。
+
+    ```php
+    $config=array(
+        'log_level' => DEBUG,
+        'mysql' => array(
+            'socket' => '/tmp/mysql.sock',
+            'host' => 'localhost',
+            'port' => 3306,            
+            'user' => 'root',
+            'password' => 'cpyf',
+            'database' => 'test',
+            'charset' => 'utf8',
+        )
+    );
+    ```
 
 
 **路由规则配置详细说明**
@@ -200,3 +227,189 @@ server类型，必须配置，目前支持http和tcp两种server类型。
     
     server_name必须是asf.ini文件中已经定义好的。
     
+**控制器父类属性方法**
+--------------------
+
+* 属性  
+
+    ```
+    protected $server;    //swoole_server对象
+    protected $mysql;     //数据访问对象
+    protected $request;   //swoole_http_request
+    protected $content;   //POST提交的body
+    protected $param;     //handle_route解析路由后附加参数
+    ```
+
+* 方法    
+__construct时，如果子类中存在_init则会被执行。  
+__destruct时，如果子类中存在_deinit则会被执行。
+
+**log类使用方法**
+----------------
+
+* log类以静态类方式使用。
+
+* 设置跟踪级别：  
+log::log_level = NOTICE;  
+支持：TRACE,DEBUG,INFO,NOTICE,WARNING,ERROR
+
+* 打印跟踪  
+log::prn_log(NOTICE, "message");
+支持：TRACE,DEBUG,INFO,NOTICE,WARNING,ERROR
+
+**mysql类使用方法**
+------------------
+* 直接在控制器用$this->mysql来操作mysql数据库。
+* select_one($sqlstr,$flag=true)
+
+    ```
+    /**
+     * 查询唯一记录
+     * @param string $sql 执行的SQL语句
+     * @flag bool 查询不到或查询到多条是否打印ERROR log
+     * @return row(array) | false
+     */
+    ```
+
+* select_more($sqlstr)
+
+    ```
+    /**
+     * 查询多条记录
+     * @param string $sql 执行的SQL语句
+     * @return result(array) | false
+     */
+    ```
+
+* insert($data,$flag=true)
+
+    ```
+    /**
+     * 插入单条记录
+     * @param array $data 插入数据字段数组['id' => 123, 'name' => 'jfy']
+     * @param bool $flag 是否打印成功跟踪，默认为true
+     * @return id | false 成功返回自增字段ID，失败返回false
+     * @see mysql->tabname->insert(['id' => 123, 'name' => 'jfy']);
+     */
+    ```
+
+* insert_one($sqlstr,$flag=true)
+
+    ```
+    /**
+     * 插入单条记录
+     * @param string $sql 执行的SQL语句
+     * @return true | false
+     * $this->insert_id 为自增字段ID
+     */
+    ```
+
+* update($data,$cond)
+
+    ```
+    /**
+     * 更新单条记录
+     * @param array $data 更新数据字段数组['name' => 'jfy']
+     * @param array $cond 更新条件字段数组['id' => 123]，顺序与索引顺序相同
+     * @return true | false
+     * @see $this->affected_rows 为更新记录数
+     * @see mysql->tabname->update(['name' => 'jfy'],['id' => 123]);
+     */
+    ```
+
+* update_one($sqlstr)
+
+    ```
+    /**
+     * 更新单条记录
+     * @param string $sql 执行的SQL语句
+     * @return true | false
+     * @see $this->affected_rows 为更新记录数
+     */
+    ```
+
+* update_more($sqlstr)
+
+    ```
+    /**
+     * 更新多条记录
+     * @param string $sql 执行的SQL语句
+     * @return true | false
+     * @see $this->affected_rows 为更新记录数
+     */
+    ```
+
+* delete($cond)
+
+    ```
+    /**
+     * 删除单条记录
+     * @param array $cond更新条件字段数组['id' => 123]，顺序与索引顺序相同
+     * @return true | false
+     * @see $this->affected_rows 为删除记录数
+     * @see mysql->tabname->delete(['id' => 123]);
+     */
+    ```
+
+* delete_one($sqlstr)
+
+    ```
+    /**
+     * 删除单条记录
+     * @param string $sql 执行的SQL语句
+     * @return true | false
+     * @see $this->affected_rows 为删除记录数
+     */
+    ```
+
+**控制器示例**
+-------------
+```php
+<?php
+
+class index_controller extends base_controller {       
+    public function index() {
+        log::prn_log(DEBUG, json_encode($this->param));
+        
+        $db = $this->mysql;
+        
+        $result = $db->gearman_queue->insert([
+            'unique_key' => 'd847233c-1ef2-11e5-9130-2c44fd7aee72',
+            'function_name' => 'test',
+            'priority' => 1,
+            'data' => 'test',
+            'when_to_run' => 0,
+        ]);
+        if ( $result === false ) return 'error';
+        
+        $result = $db->select_one("select * from gearman_queue where unique_key='d847233c-1ef2-11e5-9130-2c44fd7aee72'");
+        if ( $result === false ) return 'error';
+        var_dump($result);
+        
+        $result = $db->gearman_queue->update([
+            'function_name' => 'testtest',
+            'priority' => 100,
+            'data' => 'testtesttesttest',
+            'when_to_run' => 100,
+        ],[
+            'unique_key' => 'd847233c-1ef2-11e5-9130-2c44fd7aee72',
+        ]);
+        if ( $result === false ) return 'error';        
+        var_dump($db->select_one("select * from gearman_queue where unique_key='d847233c-1ef2-11e5-9130-2c44fd7aee72'"));
+        
+        $result = $db->gearman_queue->delete([
+            'unique_key' => 'd847233c-1ef2-11e5-9130-2c44fd7aee72',
+        ]);         
+        if ( $result === false ) return 'error';
+        
+        $result = $db->select_more("select * from gearman_queue limti 3");
+        if ( $result === false ) return 'error';
+        var_dump($result);
+        
+        return 'ok';
+    }
+}
+```
+
+在完全默认的配置下：
+http://localhost:9501/index/index  路由将会执行上面index方法。
