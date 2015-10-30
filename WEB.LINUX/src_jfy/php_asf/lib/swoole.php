@@ -13,8 +13,6 @@ class swoole
     public static $info_dir='/var/local/';
     private $title;
     private $pid_file;
-    private $listen;    
-    private $is_sington=false;  //是否单例运行，单例运行会在tmp目录下建立一个唯一的PID
     private $server_type;
     private $route;
     private $shutdown=false;
@@ -94,7 +92,8 @@ class swoole
         }
         
         if ( $this->server_type === 'http' ) {
-            $this->route = new route(Worker_conf::$route_config);
+            $route_conf = isset(Worker_conf::$config['route'])?Worker_conf::$config['route']:[];
+            $this->route = new route($route_conf);
         }
 
         if ( isset($this->on_func['workerstart']) ) call_user_func($this->on_func['workerstart'], $serv, $worker_id);
@@ -223,12 +222,15 @@ class swoole
     public function __construct()
     {
         $config = Swoole_conf::$config;
-        $this->config['swoole'] = $config;
-        $this->is_sington = isset($config['is_sington'])?$config['is_sington']:false;
+        if ( !isset($config['server_type']) ) $config['server_type'] = 'http';
+        if ( !isset($config['is_sington']) ) $config['is_sington'] = true;
+        if ( !isset($config['worker_num']) ) $config['worker_num'] = 6;
+        if ( !isset($config['daemonize']) ) $config['daemonize'] = true;        
+        $this->config = $config;        
+        
         $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
-        echo $this->pid_file;
         $this->title = 'swoole_'.$config['server_name'];
-        $this->server_type = isset($this->config['swoole']['server_type'])?$this->config['swoole']['server_type']:'http';
+        $this->server_type = $config['server_type'];
 
         Log::$log_level = $config['log_level'];
         
@@ -257,7 +259,7 @@ class swoole
             $i++;
         }
 
-        $this->serv->set($this->config['swoole']);
+        $this->serv->set($this->config);
         $this->serv->on('Start',        array($this, 'my_onStart'));
         $this->serv->on('Connect',      array($this, 'my_onConnect'));        
         $this->serv->on('Close',        array($this, 'my_onClose'));
@@ -317,7 +319,7 @@ class swoole
     public function start()
     {
         // 只能单例运行
-        if ($this->is_sington==true){
+        if ($this->config['is_sington']==true){
             $this->checkPidfile();
         }
         $this->createPidfile();
