@@ -35,7 +35,7 @@ class index_controller extends base_controller {
         ]);         
         if ( $result === false ) return 'error';
         
-        $result = $db->select_more("select * from gearman_queue limti 3");
+        $result = $db->select_more("select * from gearman_queue limit 3");
         if ( $result === false ) return 'error';
         var_dump($result);
         
