@@ -1,0 +1,5 @@
+{
+    "require": {
+        "nikic/fast-route": "^0.6.0"
+    }
+}
