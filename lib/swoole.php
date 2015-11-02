@@ -107,60 +107,65 @@ class swoole
         
         $parser = $this->protocol.'_protocol';
         
-        // 当前包的长度已知           
-        if($this->package_len[$fd])
-        {
-            // 数据不够一个包
-            if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) return;
-        }
-        else
-        {
-            // 获得当前包长
-            $this->package_len[$fd] = $parser::input($serv, $fd, $this->recv_buf[$fd]);
-            // 数据不够，无法获得包长
-            if($this->package_len[$fd] === 0) return;
-            elseif($this->package_len[$fd] > 0)
+        //如果一个请求里包含多个完整的请求包，则循环处理
+        while(true){
+            // 当前包的长度已知           
+            if($this->package_len[$fd])
             {
                 // 数据不够一个包
-                if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) return;
+                if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) break;
             }
-            // 包错误
             else
             {
-                log::prn_log(ERROR, 'error package. package_len');
-                $this->recv_buf[$fd] = '';
-                $this->package_len[$fd] = 0;
-                return;
+                // 获得当前包长
+                $this->package_len[$fd] = $parser::input($serv, $fd, $this->recv_buf[$fd]);
+                // 数据不够，无法获得包长
+                if($this->package_len[$fd] === 0) break;
+                elseif($this->package_len[$fd] > 0)
+                {
+                    // 数据不够一个包
+                    if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) break;
+                }
+                // 包错误
+                else
+                {
+                    log::prn_log(ERROR, 'error package. package_len');
+                    $this->recv_buf[$fd] = '';
+                    $this->package_len[$fd] = 0;
+                    break;
+                }
             }
-        }
 
-        // 数据足够一个包长
-        // 当前包长刚好等于buffer的长度
-        if(strlen($this->recv_buf[$fd]) === $this->package_len[$fd])
-        {
-            $one_request = $this->recv_buf[$fd];
-            $this->recv_buf[$fd] = '';
-        }
-        else
-        {
-            // 从缓冲区中获取一个完整的包
-            $one_request = substr($this->recv_buf[$fd], 0, $this->package_len[$fd]);
-            // 将当前包从接受缓冲区中去掉
-            $this->recv_buf[$fd] = substr($this->recv_buf[$fd], $this->package_len[$fd]);
-        }
-        // 重置当前包长为0
-        $this->package_len[$fd] = 0;
-        $request = $parser::decode($serv, $fd, $one_request);
-        
-        Log::prn_log(NOTICE, "request:");
-        var_dump($request);        
+            // 数据足够一个包长
+            // 当前包长刚好等于buffer的长度
+            if(strlen($this->recv_buf[$fd]) === $this->package_len[$fd])
+            {
+                $one_request = $this->recv_buf[$fd];
+                $this->recv_buf[$fd] = '';                
+            }
+            else
+            {
+                // 从缓冲区中获取一个完整的包
+                $one_request = substr($this->recv_buf[$fd], 0, $this->package_len[$fd]);
+                // 将当前包从接受缓冲区中去掉
+                $this->recv_buf[$fd] = substr($this->recv_buf[$fd], $this->package_len[$fd]);
+            }
+            // 重置当前包长为0
+            $this->package_len[$fd] = 0;
+            $request = $parser::decode($serv, $fd, $one_request);
 
-        $response = $parser::request($serv, $fd, $request);
-        
-        Log::prn_log(NOTICE, "response:");
-        var_dump($response);        
-        
-        $serv->send($fd, $parser::encode($serv, $fd, $response));
+            Log::prn_log(NOTICE, "request:");
+            var_dump($request);        
+
+            $response = $parser::request($serv, $fd, $request);
+
+            Log::prn_log(NOTICE, "response:");
+            var_dump($response);        
+
+            $serv->send($fd, $parser::encode($serv, $fd, $response));
+            
+            if($this->recv_buf[$fd] === '') break;
+        }
 
         return;
     }
