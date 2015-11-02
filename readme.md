@@ -3,7 +3,7 @@ App Server Framework（ASF）
 
 **简介**
 --------
-
+- 当前版本0.01试用版。
 - 框架基于PHP-Swoole扩展开发，通过配置文件可以自定义各种应用协议，默认支持http协议。
 - 框架本身是一个完整的tcp_server，不再需要apache,nginx,fpm这些，框架已包含log处理，mysql访问封装。
 - 框架用fast-route库来做http route处理，直接映射到控制器上,使用者只要写具体的控制器方法就可以实现rest风格的API。
