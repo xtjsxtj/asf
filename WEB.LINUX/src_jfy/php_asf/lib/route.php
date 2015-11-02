@@ -63,7 +63,7 @@ class route{
         return [
             'class' => $class,
             'fun' => $fun,
-            'param' => $route_info[2],
+            'param' => explode('/', $route_info[2]),
         ];
     }
     
@@ -80,7 +80,7 @@ class route{
         return [
             'class' => $class,            
             'fun' => 'index',
-            'param' => $route_info[2],
+            'param' => explode('/', $route_info[2]),
         ];        
     }
     

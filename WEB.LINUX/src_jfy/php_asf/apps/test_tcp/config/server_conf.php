@@ -3,7 +3,7 @@
 class Swoole_conf {
     public static $config=array(
         'server_name' => 'test_tcp',
-        'server_type' => 'tcp',
+        'protocol' => 'voip',
         'log_level' => DEBUG, 
         'is_sington' => true,
         'listen' => ['0.0.0.0:9511', '172.16.18.116:9512'],

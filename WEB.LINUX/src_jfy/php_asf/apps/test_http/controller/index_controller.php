@@ -2,6 +2,7 @@
 
 class index_controller extends base_controller {       
     public function index() {
+        log::prn_log(DEBUG, json_encode($this->content));
         log::prn_log(DEBUG, json_encode($this->param));
         
         $db = $this->mysql;
