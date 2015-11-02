@@ -4,7 +4,7 @@ App Server Framework（ASF）
 **简介**
 --------
 
-- 框架基于PHP-Swoole扩展开发，通过配置文件支持HTTP和TCP两种Server。
+- 框架基于PHP-Swoole扩展开发，通过配置文件可以自定义各种应用协议，默认支持http协议。
 - 框架本身是一个完整的tcp_server，不再需要apache,nginx,fpm这些，框架已包含log处理，mysql访问封装。
 - 框架用fast-route库来做http route处理，直接映射到控制器上,使用者只要写具体的控制器方法就可以实现rest风格的API。
 - 至于性能，可以很低调的说：相当高，具体可以参考swoole相关文档：
@@ -35,14 +35,25 @@ php asf/bin/asf.php list
 ```
 ASF
  ├── apps                             #示例server或实际应用server（实际应用不限制一定放在该目录）
- │   └── test_http                    #具体应用server示例，http_server
+ │   ├── test_http                    #具体应用server示例，http_server
+ │   │   ├── config                   #应用配置文件目录
+ │   │   │   ├── server_conf.php      #server控制进程配置文件
+ │   │   │   └── worker_conf.php      #worker处理进程配置文件
+ │   │   ├── controller               #应用控制器目录
+ │   │   │   ├── base_controller.php  #业务相关控制器的基类
+ │   │   │   └── index_controller.php #业务相关具体控制器类
+ │   │   └── index.php                #应用入口主文件(不限于该名称)，可以单独调用，可以通过bin/asf.php说统一调用
+ │   │
+ │   └── test_tcp                     #具体应用server示例，http_server
  │       ├── config                   #应用配置文件目录
  │       │   ├── server_conf.php      #server控制进程配置文件
  │       │   └── worker_conf.php      #worker处理进程配置文件
  │       ├── controller               #应用控制器目录
  │       │   ├── base_controller.php  #业务相关控制器的基类
  │       │   └── index_controller.php #业务相关具体控制器类
- │       └── index.php                #应用入口主文件(不限于该名称)，可以单独调用，可以通过bin/asf.php说统一调用
+ │       ├── protocol                 #TCP自定义协议目录
+ │       │   └── voip_protocol.php    #VOIP协议自定义解析类
+ │       └── index.php                #应用入口主文件(不限于该名称)，可以单独调用，可以通过bin/asf.php说统一调用 
  ├── bin
  │   ├── asf.php                      #多server起动状态监控shell脚本
  │   └── asf.ini                      #多server列表配置文件
@@ -70,7 +81,7 @@ ASF
     
     class Swoole_conf {
         public static $config=array(
-            'server_name' => 'test_http',  //server名称
+            'server_name' => 'test_http',  //server名称    
             'log_level' => NOTICE,         //跟踪级别
             'listen' => 9501,              //listen监听端口
             'log_file' => '/asf/apps/test_http/index.log',  //log文件
@@ -142,7 +153,7 @@ http://localhost:9501/index/index  路由将会执行上面index_controller控�
     
     class Swoole_conf {
         public static $config=array(
-            'server_name' => 'test_tcp',   //server名称
+            'server_name' => 'test_tcp',   //server名称 
             'protocol' => 'voip',          //自定义协议名称
             'log_level' => NOTICE,         //跟踪级别
             'listen' => 9511,              //listen监听端口
@@ -239,7 +250,8 @@ apps/test_tcp/protocol/voip_protocol.php
 sever名称，必须配置，当起动多个server时，保证每个server_name的唯一。
 
 * protocol  
-server类型，必须配置，目前支持http和tcp两种server类型。
+tcp_server协议类型，必须配置，支持http和各种其它自定义协议，如：voip。  
+如果是http以外的协议名称，则开发必须基于lib/protocol.php interface实现自定义协议解析类。
 
 * log_level  
 跟踪级别，必须配置，TRACE,DEBUG,INFO,NOTICE,WARNING,ERROR。
@@ -323,7 +335,7 @@ $config=array(
 ```
 
 * route  
-该配置项只在protocol=http时生效，protocol=tcp时该配置项无效。
+该配置项只在protocol=http时生效，其它自定义协议名称该配置项无效。
 底层根据这里配置的跌幅规则，将http不同的uri请求分配给相应的控制器处理。
 具体规则在下面http_server节中详细说明。
 
@@ -346,7 +358,7 @@ $config=array(
 
 **http_server的route规则配置**
 -----------------------------------
-* 上面的tcp_server开发流程中，uri请求是按系统默认的路由分发到控制器去执行的。
+* 上面的http_server开发流程中，uri请求是按系统默认的路由分发到控制器去执行的。
 * 其实ASF在http_server模式下，还可以按开发者的具体业务要求自定义路由规则到具体的控制器中处理。
 * 自定义路由规则在worker_conf的route段下设置，下面我们详细介绍下http_server的route规则配置。
 * 路由配置示例
