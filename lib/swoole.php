@@ -13,10 +13,10 @@ class swoole
     public static $info_dir='/var/local/';
     private $title;
     private $pid_file;
-    private $server_type;
+    private $protocol;
     private $route;
     private $shutdown=false;
-    private $config;        
+    private $config;  
     public $serv;
     public $mysql;    
     public $on_func;    
@@ -56,9 +56,9 @@ class swoole
 
     function my_onClose($serv, $fd, $from_id)
     {
-        global $req_string;
-        $req_string[$fd] = '';
-        //unset($req_string[$fd]);
+        $this->recv_buf[$fd] = '';
+        $this->package_len[$fd] = 0;
+
         $conninfo=$serv->connection_info($fd);
         Log::prn_log(DEBUG, "WorkerClose: client[$fd@{$conninfo['remote_ip']}]!");
     }
@@ -91,7 +91,7 @@ class swoole
             $this->serv->shutdown();
         }
         
-        if ( $this->server_type === 'http' ) {
+        if ( $this->protocol === 'http' ) {
             $route_conf = isset(Worker_conf::$config['route'])?Worker_conf::$config['route']:[];
             $this->route = new route($route_conf);
         }
@@ -101,28 +101,66 @@ class swoole
 
     public function my_onReceive($serv, $fd, $from_id, $data)
     {
-        //Log::prn_log(DEBUG, "WorkerReceive: client[$fd@{$serv->connection_info($fd)['remote_ip']}] : \n$data");
-        $reqdata=call_user_func($this->on_func['input'], $serv, $fd, $from_id, $data);
-        if ( $reqdata === false ) return;
-        if ( $reqdata === -1 ) {
-            $serv->close($fd);
-            return;
-        }        
+        if ( !isset($this->recv_buf[$fd]) ) $this->recv_buf[$fd] = '';
+        if ( !isset($this->package_len[$fd]) ) $this->package_len[$fd] = 0;
+        $this->recv_buf[$fd] .= $data;
         
-        $request = [
-            'conninfo' => $this->serv->connection_info($fd),
-            'fd' => $fd,
-            'from_id' => $from_id,
-            'content' => $reqdata,  //这个字段值由input中处理，该值会再传入request中处理
-        ];
+        $parser = $this->protocol.'_protocol';
+        
+        // 当前包的长度已知           
+        if($this->package_len[$fd])
+        {
+            // 数据不够一个包
+            if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) return;
+        }
+        else
+        {
+            // 获得当前包长
+            $this->package_len[$fd] = $parser::input($serv, $fd, $this->recv_buf[$fd]);
+            // 数据不够，无法获得包长
+            if($this->package_len[$fd] === 0) return;
+            elseif($this->package_len[$fd] > 0)
+            {
+                // 数据不够一个包
+                if($this->package_len[$fd] > strlen($this->recv_buf[$fd])) return;
+            }
+            // 包错误
+            else
+            {
+                log::prn_log(ERROR, 'error package. package_len');
+                $this->recv_buf[$fd] = '';
+                $this->package_len[$fd] = 0;
+                return;
+            }
+        }
 
+        // 数据足够一个包长
+        // 当前包长刚好等于buffer的长度
+        if(strlen($this->recv_buf[$fd]) === $this->package_len[$fd])
+        {
+            $one_request = $this->recv_buf[$fd];
+            $this->recv_buf[$fd] = '';
+        }
+        else
+        {
+            // 从缓冲区中获取一个完整的包
+            $one_request = substr($this->recv_buf[$fd], 0, $this->package_len[$fd]);
+            // 将当前包从接受缓冲区中去掉
+            $this->recv_buf[$fd] = substr($this->recv_buf[$fd], $this->package_len[$fd]);
+        }
+        // 重置当前包长为0
+        $this->package_len[$fd] = 0;
+        $request = $parser::decode($serv, $fd, $one_request);
+        
         Log::prn_log(NOTICE, "request:");
         var_dump($request);        
+
+        $response = $parser::request($serv, $fd, $request);
         
-        $response=call_user_func($this->on_func['request'], $serv, $request);
- 
-        //Log::prn_log(DEBUG, "WorkerReponse: client[$fd@{$serv->connection_info($fd)['remote_ip']}] : \n$response");
-        $serv->send($fd, $response);
+        Log::prn_log(NOTICE, "response:");
+        var_dump($response);        
+        
+        $serv->send($fd, $parser::encode($serv, $fd, $response));
 
         return;
     }
@@ -183,8 +221,7 @@ class swoole
         {
             Log::prn_log(ERROR, $content);
             return $this->response($response, 415, 'post content is empty!');        
-        }        
-                
+        }
         $obj = new $class($this, $request, $param);
         return $this->response($response, 200, $obj->$fun(), array('Content-Type' => 'application/json'));
     }
@@ -222,7 +259,7 @@ class swoole
     public function __construct()
     {
         $config = Swoole_conf::$config;
-        if ( !isset($config['server_type']) ) $config['server_type'] = 'http';
+        if ( !isset($config['protocol']) ) $config['protocol'] = 'http';
         if ( !isset($config['is_sington']) ) $config['is_sington'] = true;
         if ( !isset($config['worker_num']) ) $config['worker_num'] = 6;
         if ( !isset($config['daemonize']) ) $config['daemonize'] = true;        
@@ -230,7 +267,7 @@ class swoole
         
         $this->pid_file = self::$info_dir . "swoole_{$config['server_name']}.pid";
         $this->title = 'swoole_'.$config['server_name'];
-        $this->server_type = $config['server_type'];
+        $this->protocol = $config['protocol'];
 
         Log::$log_level = $config['log_level'];
         
@@ -240,17 +277,18 @@ class swoole
         foreach($this->listen as $v) {
             if ($i==0) {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
-                if ( $this->server_type === 'http' ) {
+                if ( $this->protocol === 'http' ) {
                     log::prn_log(NOTICE, "start http server");
                     $this->serv = new swoole_http_server($v['host'],$v['port']);
-                } else
-                if ( $this->server_type === 'tcp' ) {
-                    log::prn_log(NOTICE, "start tcp server");
-                    $this->serv = new swoole_server($v['host'],$v['port']);
                 } else {
-                    log::prn_log(ERROR, "server_type [$this->server_type] error");
-                    exit;
-                }                
+                    if(!class_exists($this->protocol.'_protocol'))
+                    {       
+                        log::prn_log(ERROR, "protocol class {$this->protocol} not exist!");
+                        exit;
+                    }                    
+                    log::prn_log(NOTICE, "start tcp({$this->protocol}) server");
+                    $this->serv = new swoole_server($v['host'],$v['port']);
+                }     
             } else {
                 log::prn_log(INFO, "listen: {$v['host']}:{$v['port']}");
                 $this->serv->addlistener($v['host'],$v['port'],SWOOLE_SOCK_TCP);
@@ -268,10 +306,9 @@ class swoole
         $this->serv->on('WorkerStop',   array($this, 'my_onWorkerStop'));
         $this->serv->on('WorkerError',  array($this, 'my_onWorkerError'));
         $this->serv->on('ManagerStart', array($this, 'my_onManagerStart'));
-        if ( $this->server_type === 'http' ) {
+        if ( $this->protocol === 'http' ) {
             $this->serv->on('Request', array($this, 'my_onRequest'));
-        }
-        if ( $this->server_type === 'tcp' ) {
+        } else {
             $this->serv->on('Receive', array($this, 'my_onReceive'));
         } 
     }
@@ -323,19 +360,6 @@ class swoole
             $this->checkPidfile();
         }
         $this->createPidfile();
-        
-        if ( $this->server_type === 'tcp' ) {
-            //input回调函数负责将tcp分段流数据按协议长度组合成一条完整的请求包
-            if ( !function_exists($this->on_func['input']) ) {
-                Log::prn_log(ERROR, 'on_input is must by register!');
-                exit;
-            }
-            //request回调函数负责解析TCP协议
-            if ( !function_exists($this->on_func['request']) ) {
-                Log::prn_log(ERROR, 'on_request is must by register!');
-                exit;
-            } 
-        }
         
         $this->serv->start();
         if ( !$this->shutdown) log::prn_log(ERROR, "swoole start error: ".swoole_errno().','.swoole_strerror(swoole_errno()));
