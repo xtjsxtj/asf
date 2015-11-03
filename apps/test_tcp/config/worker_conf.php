@@ -1,6 +1,6 @@
 <?php
 
-class Worker_conf{
+class worker_conf{
     public static $config=array(
         'log_level' => DEBUG,
         'mysql' => array(
