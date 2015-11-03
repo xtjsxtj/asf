@@ -1,6 +1,6 @@
 <?php
 
-class Swoole_conf {
+class Server_conf {
     public static $config=array(
         'server_name' => 'test_tcp',
         'protocol' => 'voip',
