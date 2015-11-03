@@ -3,7 +3,7 @@ App Server Framework（ASF）
 
 **简介**
 --------
-- 当前版本0.01试用版。
+
 - 框架基于PHP-Swoole扩展开发，通过配置文件可以自定义各种应用协议，默认支持http协议。
 - 框架本身是一个完整的tcp_server，不再需要apache,nginx,fpm这些，框架已包含log处理，mysql访问封装。
 - 框架用fast-route库来做http route处理，直接映射到控制器上,使用者只要写具体的控制器方法就可以实现rest风格的API。
@@ -406,21 +406,42 @@ $config=array(
     PUT http://localhost/user/number，分配到index控制器的index方法，同时控制器的$this->param参数中保存着：{"number":"number","id":"123"}
 
 * 默认规则  
-底层会在用户自定义的路由规则后面增加三条默认的规则：
-```
-['POST', '/{controller}/{action}[/]',  '_handler.controller_action'],
-['POST', '/{controller}[/]',               '_handler.controller'],         
-[['GET','POST'],'/{controller}/{param:.+}','_handler.controller_param'],
+底层会在用户自定义的路由规则后面增加三条默认的规则：  
+lib/config.php
+
+```php
+<?php
+
+/**
+ * ASF http默认路由配置类
+ * @author jiaofuyou@qq.com
+ * @date   2015-10-25
+ */
+
+class Route_config{
+    public static $default_route = [
+        //以下这条为系统底层自动填加的路由规则
+        
+        // POST http://localhost/index/index
+        ['POST', '/{controller}/{action}[/]',        '_handler.controller_action'],
+        
+        // POST http://localhost/index
+        ['POST', '/{controller}[/]',                 '_handler.controller'],         
+        
+        // POST http://localhost/index/index/prm/id
+        [['GET','POST'], '/{controller}/{param:.+}', '_handler.controller_param'],
+    ]; 
+}
 ```
 
-    第1条规则可以匹配以下规则：  
-    POST http://localhost/index/test，分配到index控制器的test方法。 
+第1条规则可以匹配以下规则：  
+POST http://localhost/index/test，分配到index控制器的test方法。 
        
-    第2条规则可以匹配以下规则：  
-    POST http://localhost/index，分配到index控制器的默认index方法。
+第2条规则可以匹配以下规则：  
+POST http://localhost/index，分配到index控制器的默认index方法。
     
-    第3条规则可以匹配以下规则：  
-    POST http://localhost/index/test/name/id，分配到index控制器的默认index方法,同时控制器的$this->param参数中保存着：['test', 'name', 'id']
+第3条规则可以匹配以下规则：  
+POST http://localhost/index/test/name/id，分配到index控制器的默认index方法,同时控制器的$this->param参数中保存着：['test', 'name', 'id']
 
 * 规则匹配顺序  
 系统按照先自定义规则，再默认规则的顺序执行，从上往下依次匹配，匹配到了就返回。
