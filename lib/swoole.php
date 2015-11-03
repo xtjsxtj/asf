@@ -91,7 +91,7 @@ class swoole
         }
         
         if ( $this->protocol === 'http' ) {
-            $route_conf = isset(worker_conf::$config['route'])?Worker_conf::$config['route']:[];
+            $route_conf = isset(worker_conf::$config['route'])?worker_conf::$config['route']:[];
             $this->route = new route($route_conf);
         }
 
