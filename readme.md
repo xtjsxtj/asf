@@ -79,7 +79,7 @@ ASF
     ```php
     <?php
     
-    class Swoole_conf {
+    class server_conf {
         public static $config=array(
             'server_name' => 'test_http',  //server名称    
             'log_level' => NOTICE,         //跟踪级别
@@ -93,7 +93,7 @@ ASF
     ```php
     <?php
     
-    class Worker_conf{
+    class worker_conf{
         public static $config=array(
             'log_level' => DEBUG,
             'mysql' => array(
@@ -151,7 +151,7 @@ http://localhost:9501/index/index  路由将会执行上面index_controller控�
     ```php
     <?php
     
-    class Swoole_conf {
+    class server_conf {
         public static $config=array(
             'server_name' => 'test_tcp',   //server名称 
             'protocol' => 'voip',          //自定义协议名称
@@ -166,7 +166,7 @@ http://localhost:9501/index/index  路由将会执行上面index_controller控�
     ```php
     <?php
     
-    class Worker_conf{
+    class worker_conf{
         public static $config=array(
             'log_level' => DEBUG,
             'mysql' => array(
@@ -191,7 +191,7 @@ http://localhost:9501/index/index  路由将会执行上面index_controller控�
     require_once BASE_PATH.'/../../lib/autoload.php';
     require_once BASE_PATH.'/config/server_conf.php';
     
-    $server = new swoole(Swoole_conf::$config);
+    $server = new swoole(server_conf::$config);
     $server->start();
     ```
     
