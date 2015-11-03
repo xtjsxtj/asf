@@ -71,7 +71,7 @@ class swoole
 
     function my_onWorkerStart($serv, $worker_id)
     {
-        $this->reload_set(Worker_conf::$config);
+        $this->reload_set(worker_conf::$config);
         Log::prn_log(DEBUG, 'reload ok!');        
 
         if($worker_id >= $serv->setting['worker_num'])
