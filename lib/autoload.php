@@ -25,16 +25,11 @@ spl_autoload_register(
         if ( file_exists($file) ) {
             log::prn_log(DEBUG, 'require_once: '. $file);
             require_once BASE_PATH.'/protocol' . "/$className.php";
-        }        
-    } 
-);
-
-spl_autoload_register(
-    function($className) {   
-        $file = BASE_PATH.'/protocol' . "/$className.php";
+        }  
+        $file = BASE_PATH.'/config' . "/$className.php";
         if ( file_exists($file) ) {
             log::prn_log(DEBUG, 'require_once: '. $file);
-            require_once BASE_PATH.'/protocol' . "/$className.php";
-        }        
+            require_once BASE_PATH.'/config' . "/$className.php";
+        }          
     } 
 );
