@@ -71,7 +71,6 @@ class swoole
 
     function my_onWorkerStart($serv, $worker_id)
     {
-        require_once BASE_PATH.'/config/worker_conf.php';
         $this->reload_set(Worker_conf::$config);
         Log::prn_log(DEBUG, 'reload ok!');        
 
@@ -263,7 +262,7 @@ class swoole
     
     public function __construct()
     {
-        $config = Swoole_conf::$config;
+        $config = server_conf::$config;
         if ( !isset($config['protocol']) ) $config['protocol'] = 'http';
         if ( !isset($config['is_sington']) ) $config['is_sington'] = true;
         if ( !isset($config['worker_num']) ) $config['worker_num'] = 6;
