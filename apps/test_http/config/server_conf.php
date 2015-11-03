@@ -1,6 +1,6 @@
 <?php
 
-class Swoole_conf {
+class Server_conf {
     public static $config=array(
         'server_name' => 'test_http',  //server名称
         'protocol' => 'http',          //没有该选项则默认为http server
