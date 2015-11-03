@@ -8,7 +8,6 @@
 
 define('BASE_PATH', __DIR__);
 require_once BASE_PATH.'/../../lib/autoload.php';
-require_once BASE_PATH.'/config/server_conf.php';
 
 $server = new swoole();
 $server->start();
