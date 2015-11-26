@@ -117,7 +117,7 @@ class swoole
             else
             {
                 // 获得当前包长
-                $this->package_len[$fd] = $parser::input($serv, $fd, $this->recv_buf[$fd]);
+                $this->package_len[$fd] = $parser::input($this, $fd, $this->recv_buf[$fd]);
                 // 数据不够，无法获得包长
                 if($this->package_len[$fd] === 0) break;
                 elseif($this->package_len[$fd] > 0)
@@ -151,17 +151,17 @@ class swoole
             }
             // 重置当前包长为0
             $this->package_len[$fd] = 0;
-            $request = $parser::decode($serv, $fd, $one_request);
+            $request = $parser::decode($this, $fd, $one_request);
 
             Log::prn_log(NOTICE, "request:");
             var_dump($request);        
 
-            $response = $parser::request($serv, $fd, $request);
+            $response = $parser::request($this, $fd, $request);
 
             Log::prn_log(NOTICE, "response:");
             var_dump($response);        
 
-            $serv->send($fd, $parser::encode($serv, $fd, $response));
+            $serv->send($fd, $parser::encode($this, $fd, $response));
             
             if($this->recv_buf[$fd] === '') break;
         }
